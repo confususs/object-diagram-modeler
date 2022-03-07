@@ -1,5 +1,5 @@
-@import '../node_modules/diagram-js/assets/diagram-js.css';
-@import '../node_modules/bpmn-font/dist/css/bpmn.css';
+@import 'diagram-js/assets/diagram-js.css';
+@import 'bpmn-font/dist/css/bpmn.css';
 @import url('./css/od.css');
 
 @font-face {
@@ -24,18 +24,18 @@
 }
 
 /* General */
-button {
+.pjs button {
   border: none;
   background: none;
 }
 
-ul {
+.pjs ul {
   padding: 0;
   margin: 0;
   list-style-type: none;
 }
 
-button:hover, a:hover {
+.pjs button:hover, .pjs a:hover {
   cursor: pointer;
 }
 
@@ -363,5 +363,3 @@ input, textarea {
   opacity: 1.0;
   box-shadow: 0px 2px 2px 0 rgba(0, 0, 0, 0.1);
 }
-
-
