@@ -929,7 +929,7 @@ function ODRenderer(
 
   function drawPath(parentGfx, d, attrs) {
 
-    attrs = computeStyle(attrs, ['no-fill'], {
+    attrs = computeStyle(attrs, [ 'no-fill' ], {
       strokeWidth: 2,
       stroke: 'black'
     });
@@ -968,7 +968,7 @@ function ODRenderer(
       align: align,
       padding: 5,
       style: {
-        fill: getColor(element) === 'black' ? 'white' : 'black',
+        fill: (0,_ODRendererUtil__WEBPACK_IMPORTED_MODULE_5__.getColor)(element) === 'black' ? 'white' : 'black',
         fontSize: fontSize || DEFAULT_TEXT_SIZE
       },
     });
@@ -1023,7 +1023,7 @@ function ODRenderer(
   }
 
   function drawLine(parentGfx, waypoints, attrs) {
-    attrs = computeStyle(attrs, ['no-fill'], {
+    attrs = computeStyle(attrs, [ 'no-fill' ], {
       stroke: 'black',
       strokeWidth: 2,
       fill: 'none'
@@ -1066,11 +1066,11 @@ function ODRenderer(
     return pathData;
   }
 
-  function marker(fill, stroke) {
-    var id = '-' + colorEscape(fill) + '-' + colorEscape(stroke) + '-' + rendererId;
+  function marker(type, fill, stroke, sourceOrTarget) {
+    var id = type + '-' + colorEscape(fill) + '-' + colorEscape(stroke) + '-' + rendererId + '-' + sourceOrTarget;
 
     if (!markers[id]) {
-      createMarker(id, fill, stroke);
+      createMarker(id, type, fill, stroke, sourceOrTarget);
     }
 
     return 'url(#' + id + ')';
@@ -1091,7 +1091,7 @@ function ODRenderer(
     // fix for safari / chrome / firefox bug not correctly
     // resetting stroke dash array
     if (attrs.strokeDasharray === 'none') {
-      attrs.strokeDasharray = [10000, 1];
+      attrs.strokeDasharray = [ 10000, 1 ];
     }
 
     var marker = (0,tiny_svg__WEBPACK_IMPORTED_MODULE_4__.create)('marker');
@@ -1107,7 +1107,7 @@ function ODRenderer(
       refY: ref.y,
       markerWidth: 20 * scale,
       markerHeight: 20 * scale,
-      orient: 'auto'
+      orient: 'auto-start-reverse',
     });
 
     var defs = (0,min_dom__WEBPACK_IMPORTED_MODULE_8__.query)('defs', canvas._svg);
@@ -1129,16 +1129,43 @@ function ODRenderer(
     return str.replace(/[^0-9a-zA-z]+/g, '_');
   }
 
-  function createMarker(id, type, fill, stroke) {
-    var linkEnd = (0,tiny_svg__WEBPACK_IMPORTED_MODULE_4__.create)('path');
-    (0,tiny_svg__WEBPACK_IMPORTED_MODULE_4__.attr)(linkEnd, { d: 'M 1 5 L 11 10 L 1 15 Z' });
+  function createMarker(id, type, fill, stroke, sourceOrTarget) {
+    var fillColor = stroke;
+    var element = (0,tiny_svg__WEBPACK_IMPORTED_MODULE_4__.create)('path');
+    var ref;
+    var scale = 0.5;
+
+    if (type !== 'default') {
+      scale = 0.95;
+      fillColor = 'white';
+    }
+
+    // Only add the default arrow to the target direction.
+    if (sourceOrTarget === 'target' && type === 'default') {
+      (0,tiny_svg__WEBPACK_IMPORTED_MODULE_4__.attr)(element, { d: 'M 1 5 L 11 10 L 1 15 Z' });
+      ref = { x: 11, y: 10 };
+    }
+
+    if (type === 'zero-or-many') {
+      ref = { x: 20.3, y: 6.95 };
+      (0,tiny_svg__WEBPACK_IMPORTED_MODULE_4__.attr)(element, { d: 'M13.063 6.945 25.563 6.945M13.063 6.945 25.563.695M13.063 6.945 25.563 13.195M13.063 6.945a6.25 6.25 0 1 1 0-.25Z' });
+    } else if (type === 'one-or-many') {
+      ref = { x: 19.75, y: 12.5 };
+      (0,tiny_svg__WEBPACK_IMPORTED_MODULE_4__.attr)(element, { d: 'M25 12.5 0 12.5M12.5 12.5 25 6.25M12.5 12.5 25 18.75M6.25 6.25 6.25 18.75' });
+    } else if (type === 'one') {
+      ref = { x: 21.90, y: 12.5 };
+      (0,tiny_svg__WEBPACK_IMPORTED_MODULE_4__.attr)(element, { d: 'M0 12.5 25 12.5M6.25 6.25 6.25 18.75M18.75 6.25 18.75 18.75' });
+    } else if (type === 'zero-or-one') {
+      ref = { x: 22.45, y: 6.95 };
+      (0,tiny_svg__WEBPACK_IMPORTED_MODULE_4__.attr)(element, { d: 'M13.063 6.945 25.563 6.945M19.313.695 19.313 13.195M13.063 6.945a6.25 6.25 0 1 1 0-.25Z' });
+    }
 
     addMarker(id, {
-      element: linkEnd,
-      ref: { x: 11, y: 10 },
-      scale: 0.5,
+      element,
+      ref,
+      scale,
       attrs: {
-        fill: stroke,
+        fill: fillColor,
         stroke: stroke
       }
     });
@@ -1166,9 +1193,13 @@ function ODRenderer(
       var fill = (0,_ODRendererUtil__WEBPACK_IMPORTED_MODULE_5__.getFillColor)(element, defaultFillColor),
           stroke = (0,_ODRendererUtil__WEBPACK_IMPORTED_MODULE_5__.getStrokeColor)(element, defaultStrokeColor);
 
+      var sourceRelation = (0,_ODRendererUtil__WEBPACK_IMPORTED_MODULE_5__.getLinkSourceRelation)(element);
+      var targetRelation = (0,_ODRendererUtil__WEBPACK_IMPORTED_MODULE_5__.getLinkTargetRelation)(element);
+
       var attrs = {
         strokeLinejoin: 'round',
-        markerEnd: marker(fill, stroke),
+        markerStart: marker(sourceRelation, fill, stroke, 'source'),
+        markerEnd: marker(targetRelation, fill, stroke, 'target'),
         stroke: (0,_ODRendererUtil__WEBPACK_IMPORTED_MODULE_5__.getStrokeColor)(element, defaultStrokeColor)
       };
       return drawPath(parentGfx, pathData, attrs);
@@ -1230,14 +1261,6 @@ ODRenderer.prototype.getShapePath = function(element) {
   return (0,_ODRendererUtil__WEBPACK_IMPORTED_MODULE_5__.getRectPath)(element);
 };
 
-// helpers //////////
-
-function getColor(element) {
-  var bo = (0,_util_ModelUtil__WEBPACK_IMPORTED_MODULE_9__.getBusinessObject)(element);
-
-  return bo.color || element.color;
-}
-
 
 /***/ }),
 
@@ -1250,11 +1273,14 @@ function getColor(element) {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "getColor": () => (/* binding */ getColor),
 /* harmony export */   "getDi": () => (/* binding */ getDi),
-/* harmony export */   "getSemantic": () => (/* binding */ getSemantic),
 /* harmony export */   "getFillColor": () => (/* binding */ getFillColor),
-/* harmony export */   "getStrokeColor": () => (/* binding */ getStrokeColor),
-/* harmony export */   "getRectPath": () => (/* binding */ getRectPath)
+/* harmony export */   "getLinkSourceRelation": () => (/* binding */ getLinkSourceRelation),
+/* harmony export */   "getLinkTargetRelation": () => (/* binding */ getLinkTargetRelation),
+/* harmony export */   "getRectPath": () => (/* binding */ getRectPath),
+/* harmony export */   "getSemantic": () => (/* binding */ getSemantic),
+/* harmony export */   "getStrokeColor": () => (/* binding */ getStrokeColor)
 /* harmony export */ });
 /* harmony import */ var diagram_js_lib_util_RenderUtil__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! diagram-js/lib/util/RenderUtil */ "./node_modules/diagram-js/lib/util/RenderUtil.js");
 /* harmony import */ var _util_ModelUtil__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../util/ModelUtil */ "./lib/util/ModelUtil.js");
@@ -1304,11 +1330,11 @@ function getRectPath(shape) {
       height = shape.height;
 
   var rectPath = [
-    ['M', x, y],
-    ['l', width, 0],
-    ['l', 0, height],
-    ['l', -width, 0],
-    ['z']
+    [ 'M', x, y ],
+    [ 'l', width, 0 ],
+    [ 'l', 0, height ],
+    [ 'l', -width, 0 ],
+    [ 'z' ]
   ];
 
   return (0,diagram_js_lib_util_RenderUtil__WEBPACK_IMPORTED_MODULE_0__.componentsToPath)(rectPath);
@@ -1321,6 +1347,19 @@ function getColor(element) {
 
   return bo.color || element.color;
 }
+
+function getLinkSourceRelation(element) {
+  var bo = (0,_util_ModelUtil__WEBPACK_IMPORTED_MODULE_1__.getBusinessObject)(element);
+
+  return bo.get('sourceRelation') || 'default';
+}
+
+function getLinkTargetRelation(element) {
+  var bo = (0,_util_ModelUtil__WEBPACK_IMPORTED_MODULE_1__.getBusinessObject)(element);
+
+  return bo.get('targetRelation') || 'default';
+}
+
 
 /***/ }),
 
@@ -1473,7 +1512,7 @@ function getLabelAttr(semantic) {
   if (semantic.labelAttribute) {
     return semantic.labelAttribute;
   }
-  if ((0,_modeling_util_ModelingUtil__WEBPACK_IMPORTED_MODULE_0__.isAny)(semantic, ['od:TextBox', 'od:Link', 'od:Object'])) {
+  if ((0,_modeling_util_ModelingUtil__WEBPACK_IMPORTED_MODULE_0__.isAny)(semantic, [ 'od:TextBox', 'od:Link', 'od:Object' ])) {
     return 'name';
   }
 }
@@ -1510,8 +1549,8 @@ function setLabel(element, text) {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "isAny": () => (/* binding */ isAny),
-/* harmony export */   "getParent": () => (/* binding */ getParent)
+/* harmony export */   "getParent": () => (/* binding */ getParent),
+/* harmony export */   "isAny": () => (/* binding */ isAny)
 /* harmony export */ });
 /* harmony import */ var min_dash__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! min-dash */ "./node_modules/min-dash/dist/index.esm.js");
 /* harmony import */ var _util_ModelUtil__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../../../util/ModelUtil */ "./lib/util/ModelUtil.js");
@@ -2436,13 +2475,13 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "DEFAULT_LABEL_SIZE": () => (/* binding */ DEFAULT_LABEL_SIZE),
 /* harmony export */   "FLOW_LABEL_INDENT": () => (/* binding */ FLOW_LABEL_INDENT),
-/* harmony export */   "isLabelExternal": () => (/* binding */ isLabelExternal),
-/* harmony export */   "hasExternalLabel": () => (/* binding */ hasExternalLabel),
+/* harmony export */   "getExternalLabelBounds": () => (/* binding */ getExternalLabelBounds),
+/* harmony export */   "getExternalLabelMid": () => (/* binding */ getExternalLabelMid),
 /* harmony export */   "getFlowLabelPosition": () => (/* binding */ getFlowLabelPosition),
 /* harmony export */   "getWaypointsMid": () => (/* binding */ getWaypointsMid),
-/* harmony export */   "getExternalLabelMid": () => (/* binding */ getExternalLabelMid),
-/* harmony export */   "getExternalLabelBounds": () => (/* binding */ getExternalLabelBounds),
-/* harmony export */   "isLabel": () => (/* binding */ isLabel)
+/* harmony export */   "hasExternalLabel": () => (/* binding */ hasExternalLabel),
+/* harmony export */   "isLabel": () => (/* binding */ isLabel),
+/* harmony export */   "isLabelExternal": () => (/* binding */ isLabelExternal)
 /* harmony export */ });
 /* harmony import */ var min_dash__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! min-dash */ "./node_modules/min-dash/dist/index.esm.js");
 /* harmony import */ var _ModelUtil__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./ModelUtil */ "./lib/util/ModelUtil.js");
@@ -2599,8 +2638,8 @@ function isLabel(element) {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "is": () => (/* binding */ is),
-/* harmony export */   "getBusinessObject": () => (/* binding */ getBusinessObject)
+/* harmony export */   "getBusinessObject": () => (/* binding */ getBusinessObject),
+/* harmony export */   "is": () => (/* binding */ is)
 /* harmony export */ });
 /**
  * Is an element of the given od type?
@@ -3034,6 +3073,10 @@ function createGroup(parent, cls, childIndex) {
 var BASE_LAYER = 'base';
 var HIDDEN_MARKER = 'djs-element-hidden';
 
+// render plane contents behind utility layers
+var PLANE_LAYER_INDEX = 0;
+var UTILITY_LAYER_INDEX = 1;
+
 
 var REQUIRED_MODEL_ATTRS = {
   shape: [ 'x', 'y', 'width', 'height' ],
@@ -3132,7 +3175,8 @@ Canvas.prototype._init = function(config) {
     'connection.added',
     'shape.removed',
     'connection.removed',
-    'elements.changed'
+    'elements.changed',
+    'plane.set'
   ], function() {
     delete this._cachedViewbox;
   }, this);
@@ -3193,7 +3237,7 @@ Canvas.prototype._clear = function() {
  * @returns {SVGElement}
  */
 Canvas.prototype.getDefaultLayer = function() {
-  return this.getLayer(BASE_LAYER);
+  return this.getLayer(BASE_LAYER, PLANE_LAYER_INDEX);
 };
 
 /**
@@ -3242,8 +3286,8 @@ Canvas.prototype.getLayer = function(name, index) {
  */
 Canvas.prototype._createLayer = function(name, index) {
 
-  if (!index) {
-    index = 0;
+  if (typeof index === 'undefined') {
+    index = UTILITY_LAYER_INDEX;
   }
 
   var childIndex = (0,min_dash__WEBPACK_IMPORTED_MODULE_0__.reduce)(this._layers, function(childIndex, layer) {
@@ -3273,9 +3317,7 @@ Canvas.prototype.getPlane = function(name) {
     throw new Error('must specify a name');
   }
 
-  var plane = this._planes[name];
-
-  return plane;
+  return this._planes[name];
 };
 
 /**
@@ -3304,7 +3346,7 @@ Canvas.prototype.createPlane = function(name, rootElement) {
     };
   }
 
-  var svgLayer = this.getLayer(name);
+  var svgLayer = this.getLayer(name, PLANE_LAYER_INDEX);
   (0,tiny_svg__WEBPACK_IMPORTED_MODULE_1__.classes)(svgLayer).add(HIDDEN_MARKER);
 
   var plane = this._planes[name] = {
@@ -3913,9 +3955,10 @@ Canvas.prototype.viewbox = function(box) {
   if (!box) {
 
     // compute the inner box based on the
-    // diagrams default layer. This allows us to exclude
+    // diagrams active plane. This allows us to exclude
     // external components, such as overlays
-    innerBox = this.getDefaultLayer().getBBox();
+
+    innerBox = (this._activePlane && this._activePlane.layer.getBBox()) || {};
 
     transform = (0,tiny_svg__WEBPACK_IMPORTED_MODULE_1__.transform)(viewport);
     matrix = transform ? transform.matrix : (0,tiny_svg__WEBPACK_IMPORTED_MODULE_1__.createMatrix)();
@@ -3931,10 +3974,10 @@ Canvas.prototype.viewbox = function(box) {
       height: outerBox.height / scale,
       scale: scale,
       inner: {
-        width: innerBox.width,
-        height: innerBox.height,
-        x: innerBox.x,
-        y: innerBox.y
+        width: innerBox.width || 0,
+        height: innerBox.height || 0,
+        x: innerBox.x || 0,
+        y: innerBox.y || 0
       },
       outer: outerBox
     };
@@ -3987,12 +4030,16 @@ Canvas.prototype.scroll = function(delta) {
  * Scrolls the viewbox to contain the given element.
  * Optionally specify a padding to be applied to the edges.
  *
- * @param {Object} [element] the element to scroll to.
+ * @param {Object|String} [element] the element to scroll to.
  * @param {Object|Number} [padding=100] the padding to be applied. Can also specify top, bottom, left and right.
  *
  */
 Canvas.prototype.scrollToElement = function(element, padding) {
   var defaultPadding = 100;
+
+  if (typeof element === 'string') {
+    element = this._elementRegistry.get(element);
+  }
 
   // switch to correct Plane
   var targetPlane = this.findPlane(element);
@@ -5431,13 +5478,14 @@ function BaseRenderer(eventBus, renderPriority) {
   eventBus.on([ 'render.shape', 'render.connection' ], renderPriority, function(evt, context) {
     var type = evt.type,
         element = context.element,
-        visuals = context.gfx;
+        visuals = context.gfx,
+        attrs = context.attrs;
 
     if (self.canRender(element)) {
       if (type === 'render.shape') {
-        return self.drawShape(visuals, element);
+        return self.drawShape(visuals, element, attrs);
       } else {
-        return self.drawConnection(visuals, element);
+        return self.drawConnection(visuals, element, attrs);
       }
     }
   });
@@ -5518,9 +5566,12 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var inherits__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! inherits */ "./node_modules/inherits/inherits_browser.js");
 /* harmony import */ var inherits__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(inherits__WEBPACK_IMPORTED_MODULE_0__);
 /* harmony import */ var _BaseRenderer__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./BaseRenderer */ "./node_modules/diagram-js/lib/draw/BaseRenderer.js");
-/* harmony import */ var _util_RenderUtil__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../util/RenderUtil */ "./node_modules/diagram-js/lib/util/RenderUtil.js");
+/* harmony import */ var _util_RenderUtil__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../util/RenderUtil */ "./node_modules/diagram-js/lib/util/RenderUtil.js");
 /* harmony import */ var tiny_svg__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! tiny-svg */ "./node_modules/tiny-svg/dist/index.esm.js");
+/* harmony import */ var min_dash__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! min-dash */ "./node_modules/min-dash/dist/index.esm.js");
 /* harmony import */ var _util_Elements__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../util/Elements */ "./node_modules/diagram-js/lib/util/Elements.js");
+
+
 
 
 
@@ -5558,7 +5609,7 @@ DefaultRenderer.prototype.canRender = function() {
   return true;
 };
 
-DefaultRenderer.prototype.drawShape = function drawShape(visuals, element) {
+DefaultRenderer.prototype.drawShape = function drawShape(visuals, element, attrs) {
   var rect = (0,tiny_svg__WEBPACK_IMPORTED_MODULE_2__.create)('rect');
 
   (0,tiny_svg__WEBPACK_IMPORTED_MODULE_2__.attr)(rect, {
@@ -5569,9 +5620,9 @@ DefaultRenderer.prototype.drawShape = function drawShape(visuals, element) {
   });
 
   if ((0,_util_Elements__WEBPACK_IMPORTED_MODULE_3__.isFrameElement)(element)) {
-    (0,tiny_svg__WEBPACK_IMPORTED_MODULE_2__.attr)(rect, this.FRAME_STYLE);
+    (0,tiny_svg__WEBPACK_IMPORTED_MODULE_2__.attr)(rect, (0,min_dash__WEBPACK_IMPORTED_MODULE_4__.assign)({}, this.FRAME_STYLE, attrs || {}));
   } else {
-    (0,tiny_svg__WEBPACK_IMPORTED_MODULE_2__.attr)(rect, this.SHAPE_STYLE);
+    (0,tiny_svg__WEBPACK_IMPORTED_MODULE_2__.attr)(rect, (0,min_dash__WEBPACK_IMPORTED_MODULE_4__.assign)({}, this.SHAPE_STYLE, attrs || {}));
   }
 
   (0,tiny_svg__WEBPACK_IMPORTED_MODULE_2__.append)(visuals, rect);
@@ -5579,9 +5630,9 @@ DefaultRenderer.prototype.drawShape = function drawShape(visuals, element) {
   return rect;
 };
 
-DefaultRenderer.prototype.drawConnection = function drawConnection(visuals, connection) {
+DefaultRenderer.prototype.drawConnection = function drawConnection(visuals, connection, attrs) {
 
-  var line = (0,_util_RenderUtil__WEBPACK_IMPORTED_MODULE_4__.createLine)(connection.waypoints, this.CONNECTION_STYLE);
+  var line = (0,_util_RenderUtil__WEBPACK_IMPORTED_MODULE_5__.createLine)(connection.waypoints, (0,min_dash__WEBPACK_IMPORTED_MODULE_4__.assign)({}, this.CONNECTION_STYLE, attrs || {}));
   (0,tiny_svg__WEBPACK_IMPORTED_MODULE_2__.append)(visuals, line);
 
   return line;
@@ -5602,7 +5653,7 @@ DefaultRenderer.prototype.getShapePath = function getShapePath(shape) {
     ['z']
   ];
 
-  return (0,_util_RenderUtil__WEBPACK_IMPORTED_MODULE_4__.componentsToPath)(shapePath);
+  return (0,_util_RenderUtil__WEBPACK_IMPORTED_MODULE_5__.componentsToPath)(shapePath);
 };
 
 DefaultRenderer.prototype.getConnectionPath = function getConnectionPath(connection) {
@@ -5619,7 +5670,7 @@ DefaultRenderer.prototype.getConnectionPath = function getConnectionPath(connect
     connectionPath.push([ idx === 0 ? 'M' : 'L', point.x, point.y ]);
   }
 
-  return (0,_util_RenderUtil__WEBPACK_IMPORTED_MODULE_4__.componentsToPath)(connectionPath);
+  return (0,_util_RenderUtil__WEBPACK_IMPORTED_MODULE_5__.componentsToPath)(connectionPath);
 };
 
 
@@ -6288,6 +6339,8 @@ __webpack_require__.r(__webpack_exports__);
 var KEYDOWN_EVENT = 'keyboard.keydown',
     KEYUP_EVENT = 'keyboard.keyup';
 
+var HANDLE_MODIFIER_ATTRIBUTE = 'input-handle-modified-keys';
+
 var DEFAULT_PRIORITY = 1000;
 
 /**
@@ -6377,7 +6430,26 @@ Keyboard.prototype._keyHandler = function(event, type) {
 };
 
 Keyboard.prototype._isEventIgnored = function(event) {
-  return isInput(event.target) && !(0,_KeyboardUtil__WEBPACK_IMPORTED_MODULE_0__.isCmd)(event);
+  return isInput(event.target) && this._isModifiedKeyIgnored(event);
+};
+
+Keyboard.prototype._isModifiedKeyIgnored = function(event) {
+  if (!(0,_KeyboardUtil__WEBPACK_IMPORTED_MODULE_0__.isCmd)(event)) {
+    return true;
+  }
+
+  var allowedModifiers = this._getAllowedModifiers(event.target);
+  return !allowedModifiers.includes(event.key);
+};
+
+Keyboard.prototype._getAllowedModifiers = function(element) {
+  var modifierContainer = (0,min_dom__WEBPACK_IMPORTED_MODULE_1__.closest)(element, '[' + HANDLE_MODIFIER_ATTRIBUTE + ']', true);
+
+  if (!modifierContainer || (this._node && !this._node.contains(modifierContainer))) {
+    return [];
+  }
+
+  return modifierContainer.getAttribute(HANDLE_MODIFIER_ATTRIBUTE).split(',');
 };
 
 Keyboard.prototype.bind = function(node) {
@@ -7366,21 +7438,25 @@ Overlays.prototype._addOverlay = function(overlay) {
 
 Overlays.prototype._updateOverlayVisibilty = function(overlay, viewbox) {
   var show = overlay.show,
+      plane = overlay.plane,
       minZoom = show && show.minZoom,
       maxZoom = show && show.maxZoom,
       htmlContainer = overlay.htmlContainer,
+      activePlane = this._canvas.getActivePlane(),
       visible = true;
 
-  if (show) {
+  if (plane !== activePlane) {
+    visible = false;
+  } else if (show) {
     if (
       ((0,min_dash__WEBPACK_IMPORTED_MODULE_1__.isDefined)(minZoom) && minZoom > viewbox.scale) ||
       ((0,min_dash__WEBPACK_IMPORTED_MODULE_1__.isDefined)(maxZoom) && maxZoom < viewbox.scale)
     ) {
       visible = false;
     }
-
-    setVisible(htmlContainer, visible);
   }
+
+  setVisible(htmlContainer, visible);
 
   this._updateOverlayScale(overlay, viewbox);
 };
@@ -8009,15 +8085,15 @@ function translate(template, replacements) {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "roundBounds": () => (/* binding */ roundBounds),
-/* harmony export */   "roundPoint": () => (/* binding */ roundPoint),
-/* harmony export */   "asTRBL": () => (/* binding */ asTRBL),
 /* harmony export */   "asBounds": () => (/* binding */ asBounds),
-/* harmony export */   "getMid": () => (/* binding */ getMid),
-/* harmony export */   "getOrientation": () => (/* binding */ getOrientation),
+/* harmony export */   "asTRBL": () => (/* binding */ asTRBL),
+/* harmony export */   "filterRedundantWaypoints": () => (/* binding */ filterRedundantWaypoints),
 /* harmony export */   "getElementLineIntersection": () => (/* binding */ getElementLineIntersection),
 /* harmony export */   "getIntersections": () => (/* binding */ getIntersections),
-/* harmony export */   "filterRedundantWaypoints": () => (/* binding */ filterRedundantWaypoints)
+/* harmony export */   "getMid": () => (/* binding */ getMid),
+/* harmony export */   "getOrientation": () => (/* binding */ getOrientation),
+/* harmony export */   "roundBounds": () => (/* binding */ roundBounds),
+/* harmony export */   "roundPoint": () => (/* binding */ roundPoint)
 /* harmony export */ });
 /* harmony import */ var min_dash__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! min-dash */ "./node_modules/min-dash/dist/index.esm.js");
 /* harmony import */ var _util_Geometry__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../util/Geometry */ "./node_modules/diagram-js/lib/util/Geometry.js");
@@ -8238,10 +8314,10 @@ function filterRedundantWaypoints(waypoints) {
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "Base": () => (/* binding */ Base),
-/* harmony export */   "Shape": () => (/* binding */ Shape),
-/* harmony export */   "Root": () => (/* binding */ Root),
-/* harmony export */   "Label": () => (/* binding */ Label),
 /* harmony export */   "Connection": () => (/* binding */ Connection),
+/* harmony export */   "Label": () => (/* binding */ Label),
+/* harmony export */   "Root": () => (/* binding */ Root),
+/* harmony export */   "Shape": () => (/* binding */ Shape),
 /* harmony export */   "create": () => (/* binding */ create)
 /* harmony export */ });
 /* harmony import */ var min_dash__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! min-dash */ "./node_modules/min-dash/dist/index.esm.js");
@@ -9074,8 +9150,8 @@ ZoomScroll.prototype._init = function(newEnabled) {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "getStepSize": () => (/* binding */ getStepSize),
-/* harmony export */   "cap": () => (/* binding */ cap)
+/* harmony export */   "cap": () => (/* binding */ cap),
+/* harmony export */   "getStepSize": () => (/* binding */ getStepSize)
 /* harmony export */ });
 /* harmony import */ var _util_Math__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../util/Math */ "./node_modules/diagram-js/lib/util/Math.js");
 
@@ -9169,9 +9245,9 @@ function install(eventBus, eventName) {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "remove": () => (/* binding */ remove),
 /* harmony export */   "add": () => (/* binding */ add),
-/* harmony export */   "indexOf": () => (/* binding */ indexOf)
+/* harmony export */   "indexOf": () => (/* binding */ indexOf),
+/* harmony export */   "remove": () => (/* binding */ remove)
 /* harmony export */ });
 /**
  * Failsafe remove an element from a collection
@@ -9278,9 +9354,9 @@ function indexOf(collection, element) {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "has": () => (/* binding */ has),
 /* harmony export */   "set": () => (/* binding */ set),
-/* harmony export */   "unset": () => (/* binding */ unset),
-/* harmony export */   "has": () => (/* binding */ has)
+/* harmony export */   "unset": () => (/* binding */ unset)
 /* harmony export */ });
 /* harmony import */ var min_dom__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! min-dom */ "./node_modules/min-dom/dist/index.esm.js");
 
@@ -9320,17 +9396,17 @@ function has(mode) {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "getParents": () => (/* binding */ getParents),
 /* harmony export */   "add": () => (/* binding */ add),
 /* harmony export */   "eachElement": () => (/* binding */ eachElement),
-/* harmony export */   "selfAndChildren": () => (/* binding */ selfAndChildren),
-/* harmony export */   "selfAndDirectChildren": () => (/* binding */ selfAndDirectChildren),
-/* harmony export */   "selfAndAllChildren": () => (/* binding */ selfAndAllChildren),
-/* harmony export */   "getClosure": () => (/* binding */ getClosure),
 /* harmony export */   "getBBox": () => (/* binding */ getBBox),
+/* harmony export */   "getClosure": () => (/* binding */ getClosure),
 /* harmony export */   "getEnclosedElements": () => (/* binding */ getEnclosedElements),
+/* harmony export */   "getParents": () => (/* binding */ getParents),
 /* harmony export */   "getType": () => (/* binding */ getType),
-/* harmony export */   "isFrameElement": () => (/* binding */ isFrameElement)
+/* harmony export */   "isFrameElement": () => (/* binding */ isFrameElement),
+/* harmony export */   "selfAndAllChildren": () => (/* binding */ selfAndAllChildren),
+/* harmony export */   "selfAndChildren": () => (/* binding */ selfAndChildren),
+/* harmony export */   "selfAndDirectChildren": () => (/* binding */ selfAndDirectChildren)
 /* harmony export */ });
 /* harmony import */ var min_dash__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! min-dash */ "./node_modules/min-dash/dist/index.esm.js");
 
@@ -9747,13 +9823,13 @@ function toPoint(event) {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "getMidPoint": () => (/* binding */ getMidPoint),
 /* harmony export */   "pointDistance": () => (/* binding */ pointDistance),
-/* harmony export */   "pointsOnLine": () => (/* binding */ pointsOnLine),
+/* harmony export */   "pointInRect": () => (/* binding */ pointInRect),
 /* harmony export */   "pointsAligned": () => (/* binding */ pointsAligned),
 /* harmony export */   "pointsAlignedHorizontally": () => (/* binding */ pointsAlignedHorizontally),
 /* harmony export */   "pointsAlignedVertically": () => (/* binding */ pointsAlignedVertically),
-/* harmony export */   "pointInRect": () => (/* binding */ pointInRect),
-/* harmony export */   "getMidPoint": () => (/* binding */ getMidPoint)
+/* harmony export */   "pointsOnLine": () => (/* binding */ pointsOnLine)
 /* harmony export */ });
 /* harmony import */ var min_dash__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! min-dash */ "./node_modules/min-dash/dist/index.esm.js");
 
@@ -9915,8 +9991,8 @@ function getMidPoint(p, q) {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "getVisual": () => (/* binding */ getVisual),
-/* harmony export */   "getChildren": () => (/* binding */ getChildren)
+/* harmony export */   "getChildren": () => (/* binding */ getChildren),
+/* harmony export */   "getVisual": () => (/* binding */ getVisual)
 /* harmony export */ });
 /**
  * SVGs for elements are generated by the {@link GraphicsFactory}.
@@ -10025,13 +10101,13 @@ function log10(x) {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "isMac": () => (/* reexport safe */ _Platform__WEBPACK_IMPORTED_MODULE_0__.isMac),
-/* harmony export */   "isButton": () => (/* binding */ isButton),
-/* harmony export */   "isPrimaryButton": () => (/* binding */ isPrimaryButton),
-/* harmony export */   "isAuxiliaryButton": () => (/* binding */ isAuxiliaryButton),
-/* harmony export */   "isSecondaryButton": () => (/* binding */ isSecondaryButton),
 /* harmony export */   "hasPrimaryModifier": () => (/* binding */ hasPrimaryModifier),
-/* harmony export */   "hasSecondaryModifier": () => (/* binding */ hasSecondaryModifier)
+/* harmony export */   "hasSecondaryModifier": () => (/* binding */ hasSecondaryModifier),
+/* harmony export */   "isAuxiliaryButton": () => (/* binding */ isAuxiliaryButton),
+/* harmony export */   "isButton": () => (/* binding */ isButton),
+/* harmony export */   "isMac": () => (/* reexport safe */ _Platform__WEBPACK_IMPORTED_MODULE_0__.isMac),
+/* harmony export */   "isPrimaryButton": () => (/* binding */ isPrimaryButton),
+/* harmony export */   "isSecondaryButton": () => (/* binding */ isSecondaryButton)
 /* harmony export */ });
 /* harmony import */ var _Event__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./Event */ "./node_modules/diagram-js/lib/util/Event.js");
 /* harmony import */ var _Platform__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./Platform */ "./node_modules/diagram-js/lib/util/Platform.js");
@@ -10144,8 +10220,8 @@ function delta(a, b) {
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "componentsToPath": () => (/* binding */ componentsToPath),
-/* harmony export */   "toSVGPoints": () => (/* binding */ toSVGPoints),
 /* harmony export */   "createLine": () => (/* binding */ createLine),
+/* harmony export */   "toSVGPoints": () => (/* binding */ toSVGPoints),
 /* harmony export */   "updateLine": () => (/* binding */ updateLine)
 /* harmony export */ });
 /* harmony import */ var tiny_svg__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! tiny-svg */ "./node_modules/tiny-svg/dist/index.esm.js");
@@ -10196,10 +10272,10 @@ function updateLine(gfx, points) {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "transform": () => (/* binding */ transform),
-/* harmony export */   "translate": () => (/* binding */ translate),
 /* harmony export */   "rotate": () => (/* binding */ rotate),
-/* harmony export */   "scale": () => (/* binding */ scale)
+/* harmony export */   "scale": () => (/* binding */ scale),
+/* harmony export */   "transform": () => (/* binding */ transform),
+/* harmony export */   "translate": () => (/* binding */ translate)
 /* harmony export */ });
 /* harmony import */ var tiny_svg__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! tiny-svg */ "./node_modules/tiny-svg/dist/index.esm.js");
 
@@ -10655,10 +10731,10 @@ function getLineHeight(style) {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "annotate": () => (/* binding */ annotate),
-/* harmony export */   "parseAnnotations": () => (/* binding */ parseAnnotations),
+/* harmony export */   "Injector": () => (/* binding */ Injector),
 /* harmony export */   "Module": () => (/* binding */ Module),
-/* harmony export */   "Injector": () => (/* binding */ Injector)
+/* harmony export */   "annotate": () => (/* binding */ annotate),
+/* harmony export */   "parseAnnotations": () => (/* binding */ parseAnnotations)
 /* harmony export */ });
 var CLASS_PATTERN = /^class /;
 
@@ -11756,6 +11832,22 @@ function bind(fn, target) {
   return fn.bind(target);
 }
 
+function _typeof(obj) {
+  "@babel/helpers - typeof";
+
+  if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") {
+    _typeof = function (obj) {
+      return typeof obj;
+    };
+  } else {
+    _typeof = function (obj) {
+      return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj;
+    };
+  }
+
+  return _typeof(obj);
+}
+
 function _extends() {
   _extends = Object.assign || function (target) {
     for (var i = 1; i < arguments.length; i++) {
@@ -11803,6 +11895,14 @@ function assign(target) {
 function set(target, path, value) {
   var currentTarget = target;
   forEach(path, function (key, idx) {
+    if (typeof key !== 'number' && typeof key !== 'string') {
+      throw new Error('illegal key type: ' + _typeof(key) + '. Key should be of type number or string.');
+    }
+
+    if (key === 'constructor') {
+      throw new Error('illegal key: constructor');
+    }
+
     if (key === '__proto__') {
       throw new Error('illegal key: __proto__');
     }
@@ -14941,6 +15041,20 @@ Properties.prototype.get = function(target, name) {
  * @param  {Object} options
  */
 Properties.prototype.define = function(target, name, options) {
+
+  if (!options.writable) {
+
+    var value = options.value;
+
+    // use getters for read-only variables to support ES6 proxies
+    // cf. https://github.com/bpmn-io/internal-docs/issues/386
+    options = (0,min_dash__WEBPACK_IMPORTED_MODULE_0__.assign)({}, options, {
+      get: function() { return value; }
+    });
+
+    delete options.value;
+  }
+
   Object.defineProperty(target, name, options);
 };
 
@@ -17593,19 +17707,19 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "clear": () => (/* binding */ clear),
 /* harmony export */   "clone": () => (/* binding */ clone),
 /* harmony export */   "create": () => (/* binding */ create),
+/* harmony export */   "createMatrix": () => (/* binding */ createMatrix),
+/* harmony export */   "createPoint": () => (/* binding */ createPoint),
+/* harmony export */   "createTransform": () => (/* binding */ createTransform),
 /* harmony export */   "innerSVG": () => (/* binding */ innerSVG),
+/* harmony export */   "off": () => (/* binding */ off),
+/* harmony export */   "on": () => (/* binding */ on),
 /* harmony export */   "prepend": () => (/* binding */ prepend),
 /* harmony export */   "prependTo": () => (/* binding */ prependTo),
 /* harmony export */   "remove": () => (/* binding */ remove),
 /* harmony export */   "replace": () => (/* binding */ replace),
-/* harmony export */   "transform": () => (/* binding */ transform),
-/* harmony export */   "on": () => (/* binding */ on),
-/* harmony export */   "off": () => (/* binding */ off),
-/* harmony export */   "createPoint": () => (/* binding */ createPoint),
-/* harmony export */   "createMatrix": () => (/* binding */ createMatrix),
-/* harmony export */   "createTransform": () => (/* binding */ createTransform),
 /* harmony export */   "select": () => (/* binding */ select),
-/* harmony export */   "selectAll": () => (/* binding */ selectAll)
+/* harmony export */   "selectAll": () => (/* binding */ selectAll),
+/* harmony export */   "transform": () => (/* binding */ transform)
 /* harmony export */ });
 function ensureImported(element, target) {
 
